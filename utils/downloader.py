@@ -32,13 +32,27 @@ def get_available_resolutions(info):
     formats = info.get('formats', [])
     resolutions = set()
     for f in formats:
-        if f.get('vcodec') != 'none' and f.get('height'):
-            height = f.get('height')
-            if height in [144, 240, 360, 480, 720, 1080]:
+        # More inclusive check: if it has a height and either a vcodec or is a combined format
+        height = f.get('height')
+        if height and height in [144, 240, 360, 480, 720, 1080]:
+            # Ensure it's not an audio-only format being misidentified
+            if f.get('vcodec') != 'none':
                 resolutions.add(height)
     
+    # Fallback: if no specific heights found, try to get anything up to 720p
+    if not resolutions:
+        for f in formats:
+            if f.get('vcodec') != 'none' and f.get('height'):
+                resolutions.add(f.get('height'))
+    
     sorted_res = sorted(list(resolutions), reverse=True)
-    final_res = [h for h in sorted_res if h <= 1080][:5]
+    # Filter to standard YouTube resolutions and limit to top 5
+    final_res = [h for h in sorted_res if h in [144, 240, 360, 480, 720, 1080]][:5]
+    
+    # Absolute fallback to ensure we don't return an empty list if info was fetched
+    if not final_res and info.get('formats'):
+        return ["360p"]
+        
     return [f"{h}p" for h in final_res]
 
 def download_video_sync(url: str, height: int, output_path: str):
