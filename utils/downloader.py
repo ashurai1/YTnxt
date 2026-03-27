@@ -21,7 +21,7 @@ def get_available_resolutions(info):
     formats = info.get('formats', [])
     resolutions = set()
     for f in formats:
-        if f.get('vcodec') != 'none' and f.get('get_height') and f.get('ext') == 'mp4':
+        if f.get('vcodec') != 'none' and f.get('height') and f.get('ext') == 'mp4':
             height = f.get('height')
             if height in [144, 240, 360, 480, 720, 1080]:
                 resolutions.add(height)
