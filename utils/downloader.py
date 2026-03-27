@@ -4,16 +4,20 @@ import uuid
 import yt_dlp
 
 def get_video_info_sync(url: str):
+    cookies_path = os.path.join(os.getcwd(), 'cookies.txt')
     ydl_opts = {
         'quiet': True,
         'no_warnings': True,
         'extract_flat': False,
         'user_agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36',
-        'extractor_args': {'youtube': {'player_client': ['mweb', 'web_embedded']}},
+        'extractor_args': {'youtube': {'player_client': ['mweb', 'web_embedded', 'tv_embedded']}},
     }
-    # Use cookies if available
-    if os.path.exists('cookies.txt'):
-        ydl_opts['cookiefile'] = 'cookies.txt'
+    
+    if os.path.exists(cookies_path):
+        print(f"DEBUG: Found cookies at {cookies_path}")
+        ydl_opts['cookiefile'] = cookies_path
+    else:
+        print(f"DEBUG: No cookies.txt found at {cookies_path}")
         
     with yt_dlp.YoutubeDL(ydl_opts) as ydl:
         return ydl.extract_info(url, download=False)
@@ -35,6 +39,7 @@ def get_available_resolutions(info):
     return [f"{h}p" for h in final_res]
 
 def download_video_sync(url: str, height: int, output_path: str):
+    cookies_path = os.path.join(os.getcwd(), 'cookies.txt')
     ydl_opts = {
         'format': f'bestvideo[height<={height}][ext=mp4]+bestaudio[ext=m4a]/best[ext=mp4]/best',
         'outtmpl': output_path,
@@ -42,11 +47,11 @@ def download_video_sync(url: str, height: int, output_path: str):
         'no_warnings': True,
         'merge_output_format': 'mp4',
         'user_agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36',
-        'extractor_args': {'youtube': {'player_client': ['mweb', 'web_embedded']}},
+        'extractor_args': {'youtube': {'player_client': ['mweb', 'web_embedded', 'tv_embedded']}},
     }
-    # Use cookies if available
-    if os.path.exists('cookies.txt'):
-        ydl_opts['cookiefile'] = 'cookies.txt'
+    
+    if os.path.exists(cookies_path):
+        ydl_opts['cookiefile'] = cookies_path
 
     with yt_dlp.YoutubeDL(ydl_opts) as ydl:
         ydl.download([url])
