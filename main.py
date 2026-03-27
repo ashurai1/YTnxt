@@ -1,11 +1,8 @@
 import os
 import logging
-import nest_asyncio
 from telegram.ext import Application, MessageHandler, CallbackQueryHandler, CommandHandler, filters
 from handlers.link_handler import handle_message, handle_start
 from handlers.button_handler import handle_button
-
-nest_asyncio.apply()
 
 logging.basicConfig(
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
