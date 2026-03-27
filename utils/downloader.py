@@ -4,13 +4,16 @@ import uuid
 import yt_dlp
 
 def get_video_info_sync(url: str):
-    cookies_path = os.path.join(os.getcwd(), 'cookies.txt')
+    # Get the project root directory
+    base_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    cookies_path = os.path.join(base_dir, 'cookies.txt')
+    
     ydl_opts = {
         'quiet': True,
         'no_warnings': True,
         'extract_flat': False,
         'user_agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36',
-        'extractor_args': {'youtube': {'player_client': ['mweb', 'web_embedded', 'tv_embedded']}},
+        'extractor_args': {'youtube': {'player_client': ['ios', 'mweb', 'web_embedded', 'tv_embedded']}},
     }
     
     if os.path.exists(cookies_path):
@@ -29,7 +32,7 @@ def get_available_resolutions(info):
     formats = info.get('formats', [])
     resolutions = set()
     for f in formats:
-        if f.get('vcodec') != 'none' and f.get('height') and f.get('ext') == 'mp4':
+        if f.get('vcodec') != 'none' and f.get('height'):
             height = f.get('height')
             if height in [144, 240, 360, 480, 720, 1080]:
                 resolutions.add(height)
@@ -39,15 +42,17 @@ def get_available_resolutions(info):
     return [f"{h}p" for h in final_res]
 
 def download_video_sync(url: str, height: int, output_path: str):
-    cookies_path = os.path.join(os.getcwd(), 'cookies.txt')
+    base_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    cookies_path = os.path.join(base_dir, 'cookies.txt')
+    
     ydl_opts = {
-        'format': f'bestvideo[height<={height}][ext=mp4]+bestaudio[ext=m4a]/best[ext=mp4]/best',
+        'format': f'bestvideo[height<={height}]+bestaudio/best[height<={height}]/best',
         'outtmpl': output_path,
         'quiet': True,
         'no_warnings': True,
         'merge_output_format': 'mp4',
         'user_agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36',
-        'extractor_args': {'youtube': {'player_client': ['mweb', 'web_embedded', 'tv_embedded']}},
+        'extractor_args': {'youtube': {'player_client': ['ios', 'mweb', 'web_embedded', 'tv_embedded']}},
     }
     
     if os.path.exists(cookies_path):
