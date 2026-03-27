@@ -8,6 +8,8 @@ def get_video_info_sync(url: str):
         'quiet': True,
         'no_warnings': True,
         'extract_flat': False,
+        'user_agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36',
+        'extractor_args': {'youtube': {'player_client': ['mweb', 'web_embedded']}},
     }
     with yt_dlp.YoutubeDL(ydl_opts) as ydl:
         return ydl.extract_info(url, download=False)
@@ -19,7 +21,7 @@ def get_available_resolutions(info):
     formats = info.get('formats', [])
     resolutions = set()
     for f in formats:
-        if f.get('vcodec') != 'none' and f.get('height') and f.get('ext') == 'mp4':
+        if f.get('vcodec') != 'none' and f.get('get_height') and f.get('ext') == 'mp4':
             height = f.get('height')
             if height in [144, 240, 360, 480, 720, 1080]:
                 resolutions.add(height)
@@ -35,6 +37,8 @@ def download_video_sync(url: str, height: int, output_path: str):
         'quiet': True,
         'no_warnings': True,
         'merge_output_format': 'mp4',
+        'user_agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36',
+        'extractor_args': {'youtube': {'player_client': ['mweb', 'web_embedded']}},
     }
     with yt_dlp.YoutubeDL(ydl_opts) as ydl:
         ydl.download([url])
