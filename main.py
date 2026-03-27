@@ -1,8 +1,10 @@
 import os
+import time
 import logging
 import threading
+import asyncio
 from http.server import BaseHTTPRequestHandler, HTTPServer
-from telegram import Update
+from telegram import Bot, Update
 from telegram.ext import Application, MessageHandler, CallbackQueryHandler, CommandHandler, filters
 from handlers.link_handler import handle_message, handle_start
 from handlers.button_handler import handle_button
@@ -12,9 +14,9 @@ logging.basicConfig(
     level=logging.INFO
 )
 
-# Suppress HTTP server logs  
-import logging as log
-log.getLogger('http.server').setLevel(log.WARNING)
+# Suppress noisy logs
+logging.getLogger('http.server').setLevel(logging.WARNING)
+logging.getLogger('httpx').setLevel(logging.WARNING)
 
 # Simple HTTP server for Render Health Check
 class HealthCheckHandler(BaseHTTPRequestHandler):
@@ -24,7 +26,7 @@ class HealthCheckHandler(BaseHTTPRequestHandler):
         self.wfile.write(b"Bot is alive!")
     
     def log_message(self, format, *args):
-        pass  # Silence HTTP logs
+        pass
 
 def run_health_check():
     port = int(os.environ.get("PORT", 10000))
@@ -43,6 +45,19 @@ def main():
     # Start Health Check in a separate thread
     threading.Thread(target=run_health_check, daemon=True).start()
 
+    # Wait 10 seconds for old instance to fully die on Render
+    print("Waiting 10s for old instance to stop...")
+    time.sleep(10)
+
+    # Force-clear any old connections before starting
+    async def clear_old_connections():
+        bot = Bot(token=token)
+        async with bot:
+            await bot.delete_webhook(drop_pending_updates=True)
+            print("Old webhook/connections cleared!")
+
+    asyncio.run(clear_old_connections())
+
     app = Application.builder().token(token).build()
 
     app.add_handler(CommandHandler("start", handle_start))
@@ -50,7 +65,6 @@ def main():
     app.add_handler(CallbackQueryHandler(handle_button))
 
     print("Bot is running...")
-    # drop_pending_updates=True fixes the Conflict error on redeployment
     app.run_polling(
         drop_pending_updates=True,
         allowed_updates=Update.ALL_TYPES
