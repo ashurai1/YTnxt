@@ -3,6 +3,7 @@ import os
 import uuid
 import yt_dlp
 
+
 def find_cookies():
     """Find cookies.txt from multiple possible locations"""
     project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -18,39 +19,93 @@ def find_cookies():
     print("DEBUG: ❌ COOKIES NOT FOUND")
     return None
 
-def base_opts():
-    """Base yt-dlp options with cookies and web client"""
-    # Add Deno to PATH so yt-dlp can find it for signature solving
-    deno_path = "/opt/render/.deno/bin"
-    if deno_path not in os.environ.get("PATH", ""):
-        os.environ["PATH"] = deno_path + ":" + os.environ.get("PATH", "")
 
+def base_opts():
+    """Base yt-dlp options with cookies and strong bot-bypass headers"""
     opts = {
         'quiet': True,
         'no_warnings': True,
-        'user_agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36',
+        'extractor_args': {
+            'youtube': {
+                'player_client': ['ios', 'web_creator'],
+                'skip': ['hls', 'dash'],
+            }
+        },
+        'http_headers': {
+            'User-Agent': (
+                'com.google.ios.youtube/19.29.1 '
+                '(iPhone16,2; U; CPU iOS 17_5_1 like Mac OS X;)'
+            ),
+            'Accept-Language': 'en-US,en;q=0.9',
+        },
+        'socket_timeout': 30,
+        'retries': 5,
+        'fragment_retries': 5,
     }
-    
+
     cookies_path = find_cookies()
     if cookies_path:
         opts['cookiefile'] = cookies_path
-    
+
     return opts
 
+
 def get_video_info_sync(url: str):
-    opts = base_opts()
-    
-    with yt_dlp.YoutubeDL(opts) as ydl:
+    strategies = [
+        # Strategy 1: iOS + web_creator client (best bypass)
+        {
+            'quiet': True,
+            'no_warnings': True,
+            'extractor_args': {
+                'youtube': {
+                    'player_client': ['ios', 'web_creator'],
+                }
+            },
+            'http_headers': {
+                'User-Agent': (
+                    'com.google.ios.youtube/19.29.1 '
+                    '(iPhone16,2; U; CPU iOS 17_5_1 like Mac OS X;)'
+                ),
+            },
+            'socket_timeout': 30,
+            'retries': 3,
+        },
+        # Strategy 2: android client
+        {
+            'quiet': True,
+            'no_warnings': True,
+            'extractor_args': {
+                'youtube': {
+                    'player_client': ['android'],
+                }
+            },
+            'socket_timeout': 30,
+            'retries': 3,
+        },
+        # Strategy 3: web client with cookies only
+        base_opts(),
+    ]
+
+    cookies_path = find_cookies()
+
+    for i, opts in enumerate(strategies):
+        if cookies_path and 'cookiefile' not in opts:
+            opts['cookiefile'] = cookies_path
         try:
-            info = ydl.extract_info(url, download=False)
-            print(f"DEBUG: ✅ Got info: {info.get('title')}")
-            return info
+            with yt_dlp.YoutubeDL(opts) as ydl:
+                info = ydl.extract_info(url, download=False)
+                print(f"DEBUG: ✅ Got info via strategy {i+1}: {info.get('title')}")
+                return info
         except Exception as e:
-            print(f"DEBUG: Error: {str(e)}")
-            raise e
+            print(f"DEBUG: Strategy {i+1} failed: {str(e)[:200]}")
+            continue
+
+    raise Exception("All strategies failed — YouTube is blocking this request.")
+
 
 async def get_video_info(url: str):
     return await asyncio.to_thread(get_video_info_sync, url)
+
 
 def get_available_resolutions(info):
     formats = info.get('formats', [])
@@ -74,21 +129,61 @@ def get_available_resolutions(info):
 
     return [f"{h}p" for h in final_res]
 
+
 def download_video_sync(url: str, height: int, output_path: str):
-    opts = base_opts()
-    opts.update({
+    strategies = [
+        # Strategy 1: iOS client
+        {
+            'extractor_args': {
+                'youtube': {'player_client': ['ios', 'web_creator']}
+            },
+            'http_headers': {
+                'User-Agent': (
+                    'com.google.ios.youtube/19.29.1 '
+                    '(iPhone16,2; U; CPU iOS 17_5_1 like Mac OS X;)'
+                ),
+            },
+        },
+        # Strategy 2: android client
+        {
+            'extractor_args': {
+                'youtube': {'player_client': ['android']}
+            },
+        },
+        # Strategy 3: default
+        {},
+    ]
+
+    cookies_path = find_cookies()
+    common = {
+        'quiet': True,
+        'no_warnings': True,
         'format': f'bestvideo[height<={height}]+bestaudio/best[height<={height}]/best',
         'outtmpl': f'{output_path}.%(ext)s',
         'merge_output_format': 'mp4',
-    })
+        'socket_timeout': 30,
+        'retries': 5,
+        'fragment_retries': 5,
+    }
+    if cookies_path:
+        common['cookiefile'] = cookies_path
 
-    with yt_dlp.YoutubeDL(opts) as ydl:
-        ydl.download([url])
+    for i, extra in enumerate(strategies):
+        opts = {**common, **extra}
+        try:
+            with yt_dlp.YoutubeDL(opts) as ydl:
+                ydl.download([url])
+            print(f"DEBUG: ✅ Downloaded via strategy {i+1}")
+            break
+        except Exception as e:
+            print(f"DEBUG: Download strategy {i+1} failed: {str(e)[:200]}")
+            continue
 
     for ext in ['mp4', 'mkv', 'webm']:
         if os.path.exists(f"{output_path}.{ext}"):
             return f"{output_path}.{ext}"
     return None
+
 
 async def download_video(url: str, height: int, temp_dir: str = 'temp') -> str:
     if not os.path.exists(temp_dir):
